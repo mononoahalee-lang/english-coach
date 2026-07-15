@@ -1,0 +1,82 @@
+[
+  {
+    "id": "bp-01",
+    "prompt": "丁寧に「〜していただけますか」と依頼したいとき",
+    "correct": "Could you possibly help me with this by Friday?",
+    "distractors": [
+      "Can you do this by Friday, kay?",
+      "Give me this by Friday.",
+      "I need this by Friday, k?"
+    ]
+  },
+  {
+    "id": "bp-02",
+    "prompt": "遅れたことを謝罪するとき",
+    "correct": "I apologize for the delay in my response.",
+    "distractors": [
+      "Sorry I'm late lol.",
+      "My bad for the slow reply.",
+      "Oops, forgot to reply sooner."
+    ]
+  },
+  {
+    "id": "bp-03",
+    "prompt": "会議の開始を丁寧に切り出すとき",
+    "correct": "Thank you all for joining. Let's get started.",
+    "distractors": [
+      "Ok guys let's go.",
+      "Yo, we starting now.",
+      "Alright everyone, let's just start already."
+    ]
+  },
+  {
+    "id": "bp-04",
+    "prompt": "メールの結びで今後の対応を伝えるとき",
+    "correct": "Please let me know if you have any questions.",
+    "distractors": [
+      "Hit me up if u need anything.",
+      "Tell me if something's wrong.",
+      "Lemme know if there's an issue."
+    ]
+  },
+  {
+    "id": "bp-05",
+    "prompt": "添付ファイルを案内するとき",
+    "correct": "Please find the attached document for your reference.",
+    "distractors": [
+      "Here's the file, check it.",
+      "Attached is the thing you wanted.",
+      "File's attached, take a look."
+    ]
+  },
+  {
+    "id": "bp-06",
+    "prompt": "同意しつつ懸念点も伝えたいとき",
+    "correct": "That sounds good, though I do have one concern.",
+    "distractors": [
+      "Sure but idk about that part.",
+      "Fine, but that's kinda a problem.",
+      "Ok I guess, but something's off."
+    ]
+  },
+  {
+    "id": "bp-07",
+    "prompt": "確認のフォローアップメールを送るとき",
+    "correct": "I just wanted to follow up on my previous email.",
+    "distractors": [
+      "Just checking if u saw my email.",
+      "Following up again, did you see it?",
+      "Bumping this email up again."
+    ]
+  },
+  {
+    "id": "bp-08",
+    "prompt": "感謝を伝えて締めくくるとき",
+    "correct": "Thank you for your time and consideration.",
+    "distractors": [
+      "Thanks for reading this far.",
+      "Appreciate it, bye.",
+      "Thanks a bunch, catch you later."
+    ]
+  }
+]

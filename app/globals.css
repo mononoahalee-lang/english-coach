@@ -3,6 +3,17 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  --cat-spelling: #2a78d6;
+  --cat-grammar: #008300;
+  --cat-punctuation: #e87ba4;
+  --cat-style: #eda100;
+  --cat-tone-business: #1baf7a;
+
+  --chart-grid: #e1e0d9;
+  --chart-axis: #c3c2b7;
+  --chart-muted: #898781;
+  --status-good: #0ca30c;
 }
 
 @theme inline {
@@ -16,6 +27,17 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    --cat-spelling: #3987e5;
+    --cat-grammar: #008300;
+    --cat-punctuation: #d55181;
+    --cat-style: #c98500;
+    --cat-tone-business: #199e70;
+
+    --chart-grid: #2c2c2a;
+    --chart-axis: #383835;
+    --chart-muted: #898781;
+    --status-good: #0ca30c;
   }
 }
 

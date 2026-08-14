@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getCurrentUserId } from "@/lib/currentUser";
 import { prisma } from "@/lib/prisma";
 import { pointsForReview, evaluateNewBadges } from "@/lib/scoring";
 
@@ -9,10 +9,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ errorId: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getCurrentUserId();
 
   const { errorId } = await params;
   const body = await request.json().catch(() => null);
@@ -29,7 +26,7 @@ export async function PATCH(
     include: { checkSession: true },
   });
 
-  if (!detectedError || detectedError.checkSession.userId !== session.user.id) {
+  if (!detectedError || detectedError.checkSession.userId !== userId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -51,7 +48,7 @@ export async function PATCH(
         });
 
         const progress = await tx.progress.update({
-          where: { userId: session.user.id },
+          where: { userId },
           data: {
             totalScore: { increment: points },
             totalErrorsReviewed: { increment: 1 },
@@ -59,7 +56,7 @@ export async function PATCH(
         });
 
         const existingBadges = await tx.userBadge.findMany({
-          where: { userId: session.user.id },
+          where: { userId },
           select: { badgeKey: true },
         });
 
@@ -73,7 +70,7 @@ export async function PATCH(
 
         if (newBadgeKeys.length > 0) {
           await tx.userBadge.createMany({
-            data: newBadgeKeys.map((badgeKey) => ({ userId: session.user.id, badgeKey })),
+            data: newBadgeKeys.map((badgeKey) => ({ userId, badgeKey })),
             skipDuplicates: true,
           });
         }

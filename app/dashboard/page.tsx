@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { getCurrentUserId } from "@/lib/currentUser";
 import { prisma } from "@/lib/prisma";
 import { CATEGORY_CSS_VAR, CATEGORY_ICONS, CATEGORY_LABELS } from "@/lib/categoryStyles";
 import type { ErrorCategory } from "@/lib/languagetool";
@@ -13,9 +12,7 @@ function utcDayKey(date: Date): string {
 }
 
 export default async function DashboardPage() {
-  const session = await auth();
-  if (!session?.user) redirect("/");
-  const userId = session.user.id;
+  const userId = await getCurrentUserId();
 
   const [progress, recentSessions, weakAreas] = await Promise.all([
     prisma.progress.upsert({

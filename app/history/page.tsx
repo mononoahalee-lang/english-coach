@@ -1,15 +1,13 @@
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { getCurrentUserId } from "@/lib/currentUser";
 import { prisma } from "@/lib/prisma";
 import type { ErrorCategory } from "@/lib/languagetool";
 import HistoryList from "./HistoryList";
 
 export default async function HistoryPage() {
-  const session = await auth();
-  if (!session?.user) redirect("/");
+  const userId = await getCurrentUserId();
 
   const sessions = await prisma.checkSession.findMany({
-    where: { userId: session.user.id },
+    where: { userId },
     orderBy: { createdAt: "desc" },
     take: 50,
     include: {

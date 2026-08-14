@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getCurrentUserId } from "@/lib/currentUser";
 import { prisma } from "@/lib/prisma";
 import {
   buildBusinessQuiz,
@@ -12,10 +12,7 @@ const QUIZ_SIZE = 10;
 const CORRECT_ANSWER_POINTS = 2;
 
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getCurrentUserId();
 
   const deck = new URL(request.url).searchParams.get("deck") ?? "weak-areas";
 
@@ -31,7 +28,7 @@ export async function GET(request: Request) {
     where: {
       category: { not: "TONE_BUSINESS" },
       status: { in: ["ACCEPTED", "IGNORED"] },
-      checkSession: { userId: session.user.id },
+      checkSession: { userId },
     },
     include: { checkSession: { select: { originalText: true } } },
     orderBy: { createdAt: "desc" },
@@ -43,10 +40,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getCurrentUserId();
 
   const body = await request.json().catch(() => null);
   const deck: unknown = body?.deck;
@@ -66,7 +60,7 @@ export async function POST(request: Request) {
       where: { id: itemId },
       include: { checkSession: { select: { userId: true, originalText: true } } },
     });
-    if (!source || source.checkSession.userId !== session.user.id) {
+    if (!source || source.checkSession.userId !== userId) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     correct = gradeWeakAreaAnswer(source, selected);
@@ -77,8 +71,8 @@ export async function POST(request: Request) {
   const pointsEarned = correct ? CORRECT_ANSWER_POINTS : 0;
   if (pointsEarned > 0) {
     await prisma.progress.upsert({
-      where: { userId: session.user.id },
-      create: { userId: session.user.id, totalScore: pointsEarned },
+      where: { userId },
+      create: { userId, totalScore: pointsEarned },
       update: { totalScore: { increment: pointsEarned } },
     });
   }

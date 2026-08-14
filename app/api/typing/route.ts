@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getCurrentUserId } from "@/lib/currentUser";
 import { prisma } from "@/lib/prisma";
 import { pickTypingSentences, computeTypingPoints, type TypingResult } from "@/lib/typing";
 import { computeStreakUpdate, evaluateNewBadges } from "@/lib/scoring";
@@ -7,11 +7,6 @@ import { computeStreakUpdate, evaluateNewBadges } from "@/lib/scoring";
 const SESSION_SIZE = 5;
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   return NextResponse.json({ sentences: pickTypingSentences(SESSION_SIZE) });
 }
 
@@ -22,10 +17,7 @@ function isTypingResult(value: unknown): value is TypingResult {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getCurrentUserId();
 
   const body = await request.json().catch(() => null);
   const results: unknown = body?.results;
@@ -40,8 +32,8 @@ export async function POST(request: Request) {
     const result = await prisma.$transaction(
       async (tx) => {
         const progress = await tx.progress.upsert({
-          where: { userId: session.user.id },
-          create: { userId: session.user.id },
+          where: { userId },
+          create: { userId },
           update: {},
         });
 
@@ -53,7 +45,7 @@ export async function POST(request: Request) {
         });
 
         const updatedProgress = await tx.progress.update({
-          where: { userId: session.user.id },
+          where: { userId },
           data: {
             totalScore: { increment: pointsEarned + streakUpdate.streakBonusPoints },
             currentStreak: streakUpdate.currentStreak,
@@ -63,7 +55,7 @@ export async function POST(request: Request) {
         });
 
         const existingBadges = await tx.userBadge.findMany({
-          where: { userId: session.user.id },
+          where: { userId },
           select: { badgeKey: true },
         });
 
@@ -77,7 +69,7 @@ export async function POST(request: Request) {
 
         if (newBadgeKeys.length > 0) {
           await tx.userBadge.createMany({
-            data: newBadgeKeys.map((badgeKey) => ({ userId: session.user.id, badgeKey })),
+            data: newBadgeKeys.map((badgeKey) => ({ userId, badgeKey })),
             skipDuplicates: true,
           });
         }

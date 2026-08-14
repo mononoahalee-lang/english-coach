@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ErrorCategory } from "@/lib/languagetool";
 import { CATEGORY_CSS_VAR, CATEGORY_ICONS, CATEGORY_LABELS } from "@/lib/categoryStyles";
 import { speak } from "@/lib/speech";
@@ -80,30 +80,48 @@ export default function CheckClient() {
     [errors]
   );
 
-  async function handleCheck() {
+  // DeepL-style: no manual "check" button. We auto-check once typing pauses,
+  // keyed on the exact (text, businessMode) pair so we don't re-check (and
+  // re-award points/streak) for content that's already been checked.
+  const [lastCheckedKey, setLastCheckedKey] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function runCheck(checkText: string, checkBusinessMode: boolean) {
     setLoading(true);
     setErrorMsg(null);
     try {
       const res = await fetch("/api/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, businessMode }),
+        body: JSON.stringify({ text: checkText, businessMode: checkBusinessMode }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "チェックに失敗しました");
 
-      setCheckedText(text);
+      setCheckedText(checkText);
       setErrors(data.errors);
       setProgress(data.progress);
       setSessionPoints(data.pointsEarnedThisSession);
       setNewBadges(data.newBadges ?? []);
       setSelectedErrorId(null);
+      setLastCheckedKey(`${checkText}::${checkBusinessMode}`);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const key = `${text}::${businessMode}`;
+    if (text.trim().length === 0 || key === lastCheckedKey) return;
+
+    debounceRef.current = setTimeout(() => runCheck(text, businessMode), 1200);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [text, businessMode, lastCheckedKey]);
 
   async function handleReview(errorId: string, status: "ACCEPTED" | "IGNORED") {
     if (reviewingErrorId) return;
@@ -172,17 +190,34 @@ export default function CheckClient() {
             {text.length} / {MAX_LEN}
           </span>
         </div>
-        <button
-          onClick={handleCheck}
-          disabled={loading || text.trim().length === 0}
-          className="btn-primary self-start"
-        >
-          {loading ? "チェック中..." : "🔍 チェックする"}
-        </button>
+        <div className="h-5 text-sm text-black/50 dark:text-white/50">
+          {loading ? (
+            <span>🔍 チェック中...</span>
+          ) : errors !== null && `${text}::${businessMode}` === lastCheckedKey ? (
+            <span>✅ チェック済み</span>
+          ) : text.trim().length > 0 ? (
+            <span>入力を止めると自動でチェックされます...</span>
+          ) : null}
+        </div>
         {errorMsg && <p className="text-sm text-red-600">{errorMsg}</p>}
       </div>
 
-      {errors && (
+      {errors && errors.length === 0 && (
+        <div className="card p-8 text-center">
+          <p className="text-4xl">✨</p>
+          <p className="mt-3 text-lg font-bold">
+            誤りは見つかりませんでした！
+            {sessionPoints > 0 && ` +${sessionPoints}pt`}
+          </p>
+          <p className="mt-1 text-sm text-black/60 dark:text-white/60">
+            {businessMode
+              ? "スペル・文法・ビジネストーンともに問題ありません。"
+              : "スペル・文法に問題は見つかりませんでした。カジュアルな表現もチェックしたい場合は「ビジネスメールとしてトーンもチェックする」を有効にしてください。"}
+          </p>
+        </div>
+      )}
+
+      {errors && errors.length > 0 && (
         <div className="flex flex-col gap-4">
           {presentCategories.length > 0 && (
             <div className="flex flex-wrap gap-2">

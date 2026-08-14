@@ -3,6 +3,7 @@ import type { DraftError } from "@/lib/types";
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
 interface GeminiEnrichmentResult {
+  translationJa: string;
   explanations: {
     index: number;
     explanationJa: string;
@@ -18,6 +19,7 @@ interface GeminiEnrichmentResult {
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
+    translationJa: { type: "STRING" },
     explanations: {
       type: "ARRAY",
       items: {
@@ -43,7 +45,7 @@ const RESPONSE_SCHEMA = {
       },
     },
   },
-  required: ["explanations", "businessToneSuggestions"],
+  required: ["translationJa", "explanations", "businessToneSuggestions"],
 };
 
 function buildPrompt(text: string, draftErrors: DraftError[], businessMode: boolean): string {
@@ -65,10 +67,12 @@ ORIGINAL TEXT:
 ${text}
 """
 
+Translate the ORIGINAL TEXT into natural Japanese and return it as "translationJa". Keep it concise and direct — do not add commentary.
+
 DETECTED ERRORS (index. "wrong" -> "correct" (category)):
 ${errorList || "(none)"}
 
-For each numbered error above, write a short (1-2 sentence) friendly explanation IN JAPANESE of why it was wrong and how to remember the correct form, plus a short, simple pronunciation guide for the corrected word/phrase written in katakana (e.g. "インタレスティング"). Return them in "explanations", matched by "index".
+For each numbered error above, write ONE short sentence IN JAPANESE explaining why it was wrong and how to remember the correct form, plus a short, simple pronunciation guide for the corrected word/phrase written in katakana (e.g. "インタレスティング"). Return them in "explanations", matched by "index".
 ${businessInstruction}
 
 Respond with JSON only, matching the required schema exactly.`;
@@ -81,10 +85,6 @@ export async function enrichErrors(
 ): Promise<GeminiEnrichmentResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
-
-  if (draftErrors.length === 0 && !businessMode) {
-    return { explanations: [], businessToneSuggestions: [] };
-  }
 
   const requestBody = JSON.stringify({
     contents: [{ parts: [{ text: buildPrompt(text, draftErrors, businessMode) }] }],

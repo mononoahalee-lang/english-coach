@@ -65,6 +65,7 @@ export default function CheckClient() {
   const [newBadges, setNewBadges] = useState<string[]>([]);
   const [selectedErrorId, setSelectedErrorId] = useState<string | null>(null);
   const [reviewingErrorId, setReviewingErrorId] = useState<string | null>(null);
+  const [translationJa, setTranslationJa] = useState("");
 
   const segments = useMemo(
     () => (errors ? buildSegments(checkedText, errors) : []),
@@ -100,6 +101,7 @@ export default function CheckClient() {
 
       setCheckedText(checkText);
       setErrors(data.errors);
+      setTranslationJa(data.translationJa ?? "");
       setProgress(data.progress);
       setSessionPoints(data.pointsEarnedThisSession);
       setNewBadges(data.newBadges ?? []);
@@ -201,6 +203,15 @@ export default function CheckClient() {
         </div>
         {errorMsg && <p className="text-sm text-red-600">{errorMsg}</p>}
       </div>
+
+      {errors && translationJa && (
+        <div className="card p-5">
+          <p className="mb-2 text-xs font-semibold text-black/40 dark:text-white/40">
+            🇯🇵 日本語訳
+          </p>
+          <p className="leading-relaxed">{translationJa}</p>
+        </div>
+      )}
 
       {errors && errors.length === 0 && (
         <div className="card p-8 text-center">

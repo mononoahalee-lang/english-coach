@@ -47,17 +47,17 @@ export async function POST(request: Request) {
     ruleId: match.rule.id,
   }));
 
-  // Gemini enrichment (explanations/pronunciation/business tone) is a
-  // best-effort add-on. If it fails (e.g. transient 503 overload), we still
-  // want to show the LanguageTool-detected errors rather than losing the
-  // whole check result.
-  const { explanations, businessToneSuggestions } = await enrichErrors(
+  // Gemini enrichment (translation/explanations/pronunciation/business tone)
+  // is a best-effort add-on. If it fails (e.g. transient 503 overload), we
+  // still want to show the LanguageTool-detected errors rather than losing
+  // the whole check result.
+  const { translationJa, explanations, businessToneSuggestions } = await enrichErrors(
     text,
     draftErrors,
     businessMode
   ).catch((err) => {
     console.error("Gemini enrichment failed, continuing without it", err);
-    return { explanations: [], businessToneSuggestions: [] };
+    return { translationJa: "", explanations: [], businessToneSuggestions: [] };
   });
   const t2 = Date.now();
 
@@ -174,6 +174,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     sessionId: result.checkSession.id,
     errors: result.checkSession.errors,
+    translationJa,
     progress: {
       totalScore: result.progress.totalScore,
       currentStreak: result.progress.currentStreak,

@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { pointsForReview, evaluateNewBadges } from "@/lib/scoring";
 
+class AlreadyReviewedError extends Error {}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ errorId: string }> }
@@ -31,56 +33,73 @@ export async function PATCH(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (detectedError.status !== "PENDING") {
-    return NextResponse.json({ error: "Error already reviewed" }, { status: 409 });
-  }
-
   const points = pointsForReview(status);
 
-  const result = await prisma.$transaction(async (tx) => {
-    const updatedError = await tx.detectedError.update({
-      where: { id: errorId },
-      data: { status, reviewedAt: new Date() },
-    });
+  try {
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // Atomically flip PENDING -> status so two concurrent requests for the
+        // same error can't both pass and double-award points.
+        const { count } = await tx.detectedError.updateMany({
+          where: { id: errorId, status: "PENDING" },
+          data: { status, reviewedAt: new Date() },
+        });
+        if (count === 0) throw new AlreadyReviewedError();
 
-    const progress = await tx.progress.update({
-      where: { userId: session.user.id },
-      data: {
-        totalScore: { increment: points },
-        totalErrorsReviewed: { increment: 1 },
+        const updatedError = await tx.detectedError.findUniqueOrThrow({
+          where: { id: errorId },
+        });
+
+        const progress = await tx.progress.update({
+          where: { userId: session.user.id },
+          data: {
+            totalScore: { increment: points },
+            totalErrorsReviewed: { increment: 1 },
+          },
+        });
+
+        const existingBadges = await tx.userBadge.findMany({
+          where: { userId: session.user.id },
+          select: { badgeKey: true },
+        });
+
+        const newBadgeKeys = evaluateNewBadges({
+          totalSessionsCount: progress.totalSessionsCount,
+          totalErrorsReviewed: progress.totalErrorsReviewed,
+          currentStreak: progress.currentStreak,
+          cleanSession: false,
+          alreadyEarned: new Set(existingBadges.map((b) => b.badgeKey)),
+        });
+
+        if (newBadgeKeys.length > 0) {
+          await tx.userBadge.createMany({
+            data: newBadgeKeys.map((badgeKey) => ({ userId: session.user.id, badgeKey })),
+            skipDuplicates: true,
+          });
+        }
+
+        return { updatedError, progress, newBadgeKeys };
       },
-    });
+      { maxWait: 10_000, timeout: 20_000 }
+    );
 
-    const existingBadges = await tx.userBadge.findMany({
-      where: { userId: session.user.id },
-      select: { badgeKey: true },
+    return NextResponse.json({
+      error: result.updatedError,
+      pointsEarned: points,
+      progress: {
+        totalScore: result.progress.totalScore,
+        totalErrorsReviewed: result.progress.totalErrorsReviewed,
+      },
+      newBadges: result.newBadgeKeys,
     });
-
-    const newBadgeKeys = evaluateNewBadges({
-      totalSessionsCount: progress.totalSessionsCount,
-      totalErrorsReviewed: progress.totalErrorsReviewed,
-      currentStreak: progress.currentStreak,
-      cleanSession: false,
-      alreadyEarned: new Set(existingBadges.map((b) => b.badgeKey)),
-    });
-
-    if (newBadgeKeys.length > 0) {
-      await tx.userBadge.createMany({
-        data: newBadgeKeys.map((badgeKey) => ({ userId: session.user.id, badgeKey })),
-        skipDuplicates: true,
-      });
+  } catch (err) {
+    if (err instanceof AlreadyReviewedError) {
+      return NextResponse.json({ error: "Error already reviewed" }, { status: 409 });
     }
-
-    return { updatedError, progress, newBadgeKeys };
-  });
-
-  return NextResponse.json({
-    error: result.updatedError,
-    pointsEarned: points,
-    progress: {
-      totalScore: result.progress.totalScore,
-      totalErrorsReviewed: result.progress.totalErrorsReviewed,
-    },
-    newBadges: result.newBadgeKeys,
-  });
+    console.error("PATCH /api/errors/[errorId]/review failed", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "更新中にエラーが発生しました" },
+      { status: 500 }
+    );
+  }
 }

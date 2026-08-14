@@ -6,13 +6,21 @@ import { prisma } from "@/lib/prisma";
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers: [Google],
-  session: { strategy: "database" },
+  // JWT sessions avoid a DB round-trip on every single page/API request —
+  // with "database" strategy, Neon's free-tier compute cold-starts made
+  // nearly every navigation flaky/slow. The adapter is still used so Google
+  // sign-in creates/links the User/Account rows in Postgres.
+  session: { strategy: "jwt" },
   pages: {
     signIn: "/",
   },
   callbacks: {
-    session({ session, user }) {
-      if (session.user) session.user.id = user.id;
+    jwt({ token, user }) {
+      if (user) token.id = user.id;
+      return token;
+    },
+    session({ session, token }) {
+      if (session.user && token.id) session.user.id = token.id as string;
       return session;
     },
   },

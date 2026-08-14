@@ -1,0 +1,22 @@
+[
+  { "id": "ts-01", "level": "easy", "text": "Thank you for your quick reply." },
+  { "id": "ts-02", "level": "easy", "text": "I hope you have a great weekend." },
+  { "id": "ts-03", "level": "easy", "text": "Please let me know if you have any questions." },
+  { "id": "ts-04", "level": "easy", "text": "I will be out of the office tomorrow." },
+  { "id": "ts-05", "level": "easy", "text": "Could you send me the file when you get a chance?" },
+  { "id": "ts-06", "level": "medium", "text": "I would appreciate it if you could review this by Friday." },
+  { "id": "ts-07", "level": "medium", "text": "We are looking forward to hearing from you soon." },
+  { "id": "ts-08", "level": "medium", "text": "Please find the attached document for your reference." },
+  { "id": "ts-09", "level": "medium", "text": "I apologize for the inconvenience this may have caused." },
+  { "id": "ts-10", "level": "medium", "text": "Let's schedule a meeting to discuss this further next week." },
+  { "id": "ts-11", "level": "medium", "text": "The quarterly report shows a significant improvement in sales." },
+  { "id": "ts-12", "level": "medium", "text": "I noticed a few inconsistencies in the spreadsheet you sent." },
+  { "id": "ts-13", "level": "hard", "text": "I sincerely appreciate your patience while we resolve this issue." },
+  { "id": "ts-14", "level": "hard", "text": "Would it be possible to reschedule our appointment to next Wednesday?" },
+  { "id": "ts-15", "level": "hard", "text": "We are committed to delivering the project within the agreed timeline." },
+  { "id": "ts-16", "level": "hard", "text": "I just wanted to follow up on the email I sent last week." },
+  { "id": "ts-17", "level": "medium", "text": "It was very interesting to learn about your company's new strategy." },
+  { "id": "ts-18", "level": "easy", "text": "My favorite season is autumn because the weather is comfortable." },
+  { "id": "ts-19", "level": "medium", "text": "Practice makes perfect, so don't be afraid to make mistakes." },
+  { "id": "ts-20", "level": "hard", "text": "The restaurant was surprisingly crowded for a Tuesday afternoon." }
+]

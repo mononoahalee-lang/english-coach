@@ -36,7 +36,10 @@ export async function POST(request: Request) {
     );
   }
 
+  try {
+  const t0 = Date.now();
   const matches = await checkWithLanguageTool(text);
+  const t1 = Date.now();
 
   const draftErrors: DraftError[] = matches.map((match) => ({
     offset: match.offset,
@@ -47,11 +50,19 @@ export async function POST(request: Request) {
     ruleId: match.rule.id,
   }));
 
+  // Gemini enrichment (explanations/pronunciation/business tone) is a
+  // best-effort add-on. If it fails (e.g. transient 503 overload), we still
+  // want to show the LanguageTool-detected errors rather than losing the
+  // whole check result.
   const { explanations, businessToneSuggestions } = await enrichErrors(
     text,
     draftErrors,
     businessMode
-  );
+  ).catch((err) => {
+    console.error("Gemini enrichment failed, continuing without it", err);
+    return { explanations: [], businessToneSuggestions: [] };
+  });
+  const t2 = Date.now();
 
   const explanationByIndex = new Map(explanations.map((e) => [e.index, e]));
   const enrichedErrors = draftErrors.map((error, index) => ({
@@ -60,9 +71,15 @@ export async function POST(request: Request) {
     pronunciationGuide: explanationByIndex.get(index)?.pronunciationGuide ?? null,
   }));
 
+  const overlaps = (offset: number, length: number) =>
+    draftErrors.some(
+      (e) => offset < e.offset + e.length && offset + length > e.offset
+    );
+
   for (const suggestion of businessToneSuggestions) {
     const offset = text.indexOf(suggestion.originalSpan);
     if (offset === -1) continue;
+    if (overlaps(offset, suggestion.originalSpan.length)) continue;
     enrichedErrors.push({
       offset,
       length: suggestion.originalSpan.length,
@@ -151,7 +168,11 @@ export async function POST(request: Request) {
     }
 
     return { checkSession, progress: updatedProgress, newBadgeKeys };
-  });
+  }, { maxWait: 10_000, timeout: 20_000 });
+  const t3 = Date.now();
+  console.log(
+    `[check] languagetool=${t1 - t0}ms gemini=${t2 - t1}ms db=${t3 - t2}ms total=${t3 - t0}ms`
+  );
 
   return NextResponse.json({
     sessionId: result.checkSession.id,
@@ -164,4 +185,11 @@ export async function POST(request: Request) {
     pointsEarnedThisSession: cleanSessionBonus,
     newBadges: result.newBadgeKeys,
   });
+  } catch (err) {
+    console.error("POST /api/check failed", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "チェック中にエラーが発生しました" },
+      { status: 500 }
+    );
+  }
 }

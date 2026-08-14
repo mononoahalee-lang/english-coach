@@ -55,7 +55,7 @@ function buildPrompt(text: string, draftErrors: DraftError[], businessMode: bool
     .join("\n");
 
   const businessInstruction = businessMode
-    ? `\nThis text is a business email. Additionally, scan the ORIGINAL TEXT (not just the list above) for phrases that are too casual, blunt, or could come across as impolite in a professional business context, and suggest a more business-appropriate rewording for each. Return these separately in "businessToneSuggestions", each with the exact original substring so it can be located in the text. If none are found, return an empty array.`
+    ? `\nThis text is a business email. Additionally, scan the ORIGINAL TEXT (not just the list above) for short phrases (a few words, NEVER a whole sentence or clause) that are too casual, blunt, or could come across as impolite in a professional business context, and suggest a more business-appropriate rewording for each. Keep each "originalSpan" as SHORT and SPECIFIC as possible, and never choose a span that overlaps or contains any of the DETECTED ERRORS listed above. Return these separately in "businessToneSuggestions", each with the exact original substring so it can be located in the text. If none are found, return an empty array.`
     : `\nReturn an empty array for "businessToneSuggestions".`;
 
   return `You are a friendly English writing coach helping a Japanese learner improve their English spelling, grammar, and pronunciation.
@@ -86,20 +86,32 @@ export async function enrichErrors(
     return { explanations: [], businessToneSuggestions: [] };
   }
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    {
+  const requestBody = JSON.stringify({
+    contents: [{ parts: [{ text: buildPrompt(text, draftErrors, businessMode) }] }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: RESPONSE_SCHEMA,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+  });
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+
+  let res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: requestBody,
+  });
+
+  // Gemini's "high demand" 503s are usually transient; one short retry
+  // clears most of them instead of losing the whole check result.
+  if (res.status === 503) {
+    await new Promise((r) => setTimeout(r, 1000));
+    res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: buildPrompt(text, draftErrors, businessMode) }] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
-        },
-      }),
-    }
-  );
+      body: requestBody,
+    });
+  }
 
   if (!res.ok) {
     throw new Error(`Gemini request failed: ${res.status} ${await res.text()}`);
